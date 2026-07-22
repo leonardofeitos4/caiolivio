@@ -55,19 +55,18 @@
     { label: 'LOCALIZAÇÃO', value: 'Recife, Pernambuco, Brasil', href: () => '#contato', icon: null, pin: true },
   ];
 
-  const IMG_DIR = 'images/obras/';
-  const THUMB_DIR = 'images/obras/thumbs/';
+  const IMG_DIR = 'images/acervo/';
 
   // Página atual: index (destaques) ou catálogo completo
   const IS_CATALOGO = document.body.dataset.page === 'catalogo';
   const PAGE_SIZE = IS_CATALOGO ? 12 : 8;
 
   function buildObras() {
-    // Fotos reais do acervo (geradas em js/obras-data.js a partir da pasta obras/)
-    const fotos = (window.OBRAS_FOTOS || []).filter(o => o.int.length > 0);
+    // Fotos reais do acervo, já fotografadas em ambiente (ver js/obras-data.js)
+    const fotos = window.OBRAS_FOTOS || [];
     return fotos.map((f, i) => {
       const s = SERIES[i % 5];
-      const n = String(f.n).padStart(3, '0');
+      const n = String(f.n).padStart(2, '0');
       return {
         id: f.n,
         serie: s.name,
@@ -77,9 +76,7 @@
         dim: 'Medidas sob consulta',
         year: null,
         grad: s.grad,
-        img: IMG_DIR + f.int[0],
-        thumb: THUMB_DIR + f.int[0],
-        galeria: [...f.int, ...f.det, ...f.dupla],
+        img: IMG_DIR + f.file,
       };
     });
   }
@@ -213,14 +210,9 @@
 
     obrasGrid.innerHTML = visible.map(o => `
       <div class="obra-card" data-id="${o.id}">
-        <div class="obra-card__wall js-open-modal" data-id="${o.id}">
-          <div class="obra-card__spot"></div>
+        <div class="obra-card__photo js-open-modal" data-id="${o.id}">
+          <img src="${o.img}" alt="${o.title} — pintura abstrata de Caio Livio, em ambiente" loading="lazy">
           <button class="obra-card__fav js-fav-btn${isFavorited(o.id) ? ' is-active' : ''}" data-id="${o.id}" aria-label="Favoritar obra" type="button">${HEART_ICON}</button>
-          <div class="matte matte--sm">
-            <div class="artwork artwork--square" style="background:${o.grad}">
-              <img src="${o.thumb}" alt="${o.title} — pintura abstrata de Caio Livio" loading="lazy">
-            </div>
-          </div>
         </div>
         <div class="obra-card__info">
           <div>
@@ -290,20 +282,12 @@
     modalFav.innerHTML = `${HEART_ICON} ${active ? 'FAVORITADO' : 'FAVORITAR'}`;
   }
 
-  const modalThumbs = document.getElementById('modalThumbs');
-
-  function setModalImage(o, file) {
-    modalArtwork.style.background = o.grad;
-    modalArtwork.innerHTML = `<img src="${IMG_DIR}${file}" alt="${o.title} — pintura abstrata de Caio Livio">`;
-    modalThumbs.querySelectorAll('.modal__thumb').forEach(t => {
-      t.classList.toggle('is-active', t.dataset.file === file);
-    });
-  }
-
   function openModal(id) {
     const o = OBRAS.find(x => x.id === id);
     if (!o) return;
     currentModalId = id;
+    modalArtwork.src = o.img;
+    modalArtwork.alt = `${o.title} — pintura abstrata de Caio Livio, em ambiente`;
     modalCode.textContent = o.codigo;
     modalTitle.textContent = o.title;
     modalSub.textContent = `Pintura Abstrata · Série ${o.serie}`;
@@ -311,23 +295,11 @@
     modalYear.textContent = 'Sob consulta';
     modalSerie.textContent = o.serie;
     modalWa.href = wa(MESSAGES.obra(o.title, o.codigo));
-    modalThumbs.innerHTML = o.galeria.map(f => `
-      <button class="modal__thumb" data-file="${f}" type="button">
-        <img src="${THUMB_DIR}${f}" alt="" loading="lazy">
-      </button>
-    `).join('');
-    setModalImage(o, o.galeria[0]);
     updateModalFavButton();
     modalOverlay.hidden = false;
     document.body.style.overflow = 'hidden';
   }
 
-  modalThumbs.addEventListener('click', (e) => {
-    const btn = e.target.closest('.modal__thumb');
-    if (!btn || currentModalId === null) return;
-    const o = OBRAS.find(x => x.id === currentModalId);
-    if (o) setModalImage(o, btn.dataset.file);
-  });
   function closeModal() {
     modalOverlay.hidden = true;
     document.body.style.overflow = '';
@@ -351,71 +323,6 @@
   renderObras();
 
   /* ---------------------------------------------------------------------
-   * Visualizador de ambiente — obra aplicada na parede de uma sala
-   * ------------------------------------------------------------------- */
-  const ambOverlay = document.getElementById('ambOverlay');
-  const ambPanel = document.getElementById('ambPanel');
-  const ambTitle = document.getElementById('ambTitle');
-  const ambArt = document.getElementById('ambArt');
-  const ambArtImg = document.getElementById('ambArtImg');
-  const ambFoto = document.getElementById('ambFoto');
-  const ambSizes = document.getElementById('ambSizes');
-  const ambEnvs = document.getElementById('ambEnvs');
-
-  // Fotos reais de ambiente (Pexels, licença livre). cx/bottom em % da foto;
-  // widths = largura da obra em % da foto, por tamanho.
-  const AMBIENTES = {
-    sala:   { img: 'images/ambientes/sala.jpg',   cx: 50, bottom: 52, widths: { p: 18, m: 23, g: 29 } },
-    hall:   { img: 'images/ambientes/hall.jpg',   cx: 50, bottom: 55, widths: { p: 14, m: 18, g: 22 } },
-    quarto: { img: 'images/ambientes/quarto.jpg', cx: 47, bottom: 52, widths: { p: 11, m: 14, g: 17 } },
-  };
-  let ambSize = 'm';
-  let ambEnv = 'sala';
-
-  function applyAmb() {
-    const env = AMBIENTES[ambEnv];
-    if (ambFoto.getAttribute('src') !== env.img) ambFoto.src = env.img;
-    ambArt.style.left = env.cx + '%';
-    ambArt.style.bottom = env.bottom + '%';
-    ambArt.style.width = env.widths[ambSize] + '%';
-    ambSizes.querySelectorAll('.amb-size').forEach(b => {
-      b.classList.toggle('is-active', b.dataset.size === ambSize);
-    });
-    ambEnvs.querySelectorAll('.amb-size').forEach(b => {
-      b.classList.toggle('is-active', b.dataset.env === ambEnv);
-    });
-  }
-
-  function openAmbiente() {
-    if (currentModalId === null) return;
-    const o = OBRAS.find(x => x.id === currentModalId);
-    if (!o) return;
-    ambTitle.textContent = `${o.title} · Caio Livio`;
-    ambArtImg.src = o.img;
-    applyAmb();
-    ambOverlay.hidden = false;
-  }
-  function closeAmbiente() { ambOverlay.hidden = true; }
-
-  document.getElementById('modalAmbiente').addEventListener('click', openAmbiente);
-  document.getElementById('ambClose').addEventListener('click', closeAmbiente);
-  ambOverlay.addEventListener('click', (e) => { if (e.target === ambOverlay) closeAmbiente(); });
-  ambPanel.addEventListener('click', (e) => e.stopPropagation());
-  ambSizes.addEventListener('click', (e) => {
-    const btn = e.target.closest('.amb-size');
-    if (!btn) return;
-    ambSize = btn.dataset.size;
-    applyAmb();
-  });
-  ambEnvs.addEventListener('click', (e) => {
-    const btn = e.target.closest('.amb-size');
-    if (!btn) return;
-    ambEnv = btn.dataset.env;
-    applyAmb();
-  });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !ambOverlay.hidden) closeAmbiente(); });
-
-  /* ---------------------------------------------------------------------
    * Carrinho de favoritos
    * ------------------------------------------------------------------- */
   const cartToggle = document.getElementById('cartToggle');
@@ -430,7 +337,7 @@
     cartEmpty.classList.toggle('is-visible', items.length === 0);
     cartList.innerHTML = items.map(o => `
       <div class="cart-item" data-id="${o.id}">
-        <div class="cart-item__swatch" style="background:${o.grad}"><img src="${o.thumb}" alt="" loading="lazy"></div>
+        <div class="cart-item__swatch" style="background:${o.grad}"><img src="${o.img}" alt="" loading="lazy"></div>
         <div>
           <div class="cart-item__title">${o.title}</div>
           <div class="cart-item__meta">${o.dim} · ${o.serie}</div>
