@@ -1,9 +1,4 @@
-﻿*.zip
-wetransfer_*
-
 *.zip
 wetransfer_*
-
-*.zip
-wetransfer_*
-
+.DS_Store
+Thumbs.db
